@@ -19,8 +19,7 @@ extern "C" {
 /* we now allow sliding windows to be NULL, memory buffer, or memory-mapped file */
 enum {
 	SLIDING_WINDOW_V4_TYPE_NULL=0,
-	SLIDING_WINDOW_V4_TYPE_BUFFER,
-	SLIDING_WINDOW_V4_TYPE_MMAP
+	SLIDING_WINDOW_V4_TYPE_BUFFER
 };
 
 /* NTS: This is the new improved sliding window implementation.
@@ -58,65 +57,6 @@ typedef struct sliding_window_v4 {
 				void*		pointer;
 			} user; /* the caller may assign custom data here, pointer or integer */
 		} buffer;
-		/* SLIDING_WINDOW_V4_TYPE_MMAP */
-		struct {
-			/* In this scenario, buffer and pointers may be set to NULL initially. Upon request for more data,
-			 * or if the function is explicitly called to do so, the OS memory-mapping API is used to map
-			 * file contents into memory, and "buffer" is set to the base of that mapping. If "flush" or
-			 * other API functions are called, the "buffer" pointer value may change depending on
-			 * what the OS mmap() function returns.
-			 *
-			 * buffer == data == end == fence == NULL if no mapping
-			 *     or
-			 * buffer = mmap(...)
-			 * fence = buffer + mmap_size
-			 *
-			 * the "allocation" length in this case reflects how much was actually memory-mapped */
-#if defined(WIN32)
-			/* Variables for future Microsoft Windows port */
-			HANDLE		handle;				/* Win32 "HANDLE" to the file */
-			HANDLE		fmapping;			/* Win32 "File mapping" object */
-#else
-			int		fd;				/* file descriptor (TODO: Win32 port should declare as "HANDLE") */
-#endif
-			uint64_t	file_offset;			/* file offset that corresponds to contents seen at *buffer.
-									   so if the data pointer is somewhere within the buffer, the file offset it
-									   corresponds to is:
-									   
-									   (size_t)data - (size_t)buffer + file_offset
-									   
-									   if buffer == NULL (not yet mapped) then this file offset becomes what the
-									   mapper will mmap() from next (rounded down to the nearest page boundary though) */
-			size_t		last_lazy_sz;			/* last value passed to mmap_lazy() which is used in writing mode */
-			size_t		mmap_limit;			/* caller specified mmap limit. library will not mmap() more than this at any time.
-									   the caller will probably have thousands of reasons why we can't go wild and mmap
-									   whatever the fuck we want, and for good reason. */
-			unsigned int	rw:1;				/* 1=mmap read/write  0=mmap read-only */
-			unsigned int	fd_owner:1;			/* 1=this library "owns" the file descriptor and
-									   will close it upon destruction of the window */
-			unsigned int	writing_mode:1;			/* 1=write mode: on mmap/flush set end == data  0=read mode: on mmap/flush set end == fence */
-			unsigned int	malloc_fallback:1;		/* 1=memory mapping failed for whatever reason, so the library had to malloc()
-									   the buffer and read in the contents instead. when mapping again, the library
-									   will free() the buffer, then attempt another memory map.
-
-									   this fallback will probably not be necessary for Linux, but is needed to deal
-									   with deficiencies in Microsoft Windows where memory-mapping may not work, such
-									   as when one process attempts to map the same "page" from the file to two different
-									   virtual memory addresses (because the calling process has two instances of this
-									   object pointed at a file perhaps) --- not a problem in Linux, but too much for
-									   Windows to handle apparently.
-									   
-									   FIXME: This fallback mode currently offers no "synchronization" when in r/w mode */
-			unsigned int	eof_flag:1;			/* 1=the mapping, or attempt at mapping, bumps up against the end of the file */
-			unsigned int	extend_while_writing:1;		/* 1=if writing mode and mmap_lazy() detects any attempt to extend into EOF, the
-									     library will automatically extend the file out up to "sz" bytes to satisfy the
-									     request.
-									    
-									   NOTE: Because of the way this works, expect your file to have extra padding or
-									         junk past what you have written when you finish with the window. When closing
-										 the window and the file, you may want to ftruncate() the file back to contain
-										 only the data you intended to write. */
-		} mmap;
 	} u;
 } sliding_window_v4;
 /* at all times in proper operation:
@@ -217,38 +157,6 @@ sliding_window_v4*	sliding_window_v4_create_mmap(size_t limit,int fd);
 int			sliding_window_v4_mmap_data_advance(sliding_window_v4 *sw,unsigned char *to);
 int			sliding_window_v4_do_mmap_autoextend(sliding_window_v4 *sw,uint64_t ofs,size_t len);
 
-/* set whether or not the file is automatically extended upon writing */
-static inline int sliding_window_v4_set_mmap_extend_while_writing(sliding_window_v4 *sw,int ex) {
-	if (sw == NULL) return 0;
-	if (sw->type != SLIDING_WINDOW_V4_TYPE_MMAP) return 0;
-	if (sw->u.mmap.rw == 0) return 0;
-	sw->u.mmap.extend_while_writing = ex;
-	return 1;
-}
-
-/* set write mode for mmap objects */
-static inline int sliding_window_v4_set_mmap_write_mode(sliding_window_v4 *sw,int write) {
-	if (sw == NULL) return 0;
-	if (sw->type != SLIDING_WINDOW_V4_TYPE_MMAP) return 0;
-	if (sw->u.mmap.rw == 0) return 0;
-	sw->u.mmap.writing_mode = write;
-	return 1;
-}
-
-/* set read/write flag for mmap objects */
-static inline int sliding_window_v4_set_mmap_rw(sliding_window_v4 *sw,int rw) {
-	if (sw == NULL) return 0;
-	if (sw->type != SLIDING_WINDOW_V4_TYPE_MMAP) return 0;
-	sw->u.mmap.rw = rw;
-	return 1;
-}
-
-static inline int sliding_window_v4_mmap_eof(sliding_window_v4 *sw) {
-	if (sw == NULL) return 0;
-	if (sw->type != SLIDING_WINDOW_V4_TYPE_MMAP) return 0;
-	return sw->u.mmap.eof_flag;
-}
-
 static inline int sliding_window_v4_set_custom_buffer_free_cb(sliding_window_v4 *sw,void (*cb)(void *)) {
 	if (sw->type == SLIDING_WINDOW_V4_TYPE_BUFFER && !sw->u.buffer.lib_owner) {
 		sw->u.buffer.owner_free_buffer = cb;
@@ -270,11 +178,6 @@ static inline unsigned char sliding_window_v4_is_readable(sliding_window_v4 *sw)
  * minute they try to write read-only mappings, and it serves them right! */
 static inline unsigned char sliding_window_v4_is_writeable(sliding_window_v4 *sw) {
 	if (sw == NULL) return 0;
-
-	if (sw->type == SLIDING_WINDOW_V4_TYPE_MMAP) {
-		/* if buffer is non-null and the caller wanted read/write mapping */
-		return (sw->buffer != NULL && sw->u.mmap.rw)?1:0;
-	}
 
 	/* if the buffer is not null */
 	return (sw->buffer != NULL)?1:0;
