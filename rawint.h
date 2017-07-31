@@ -11,56 +11,6 @@
 #include <endian.h>
 
 /**
-* @file
-* @brief Convert raw ints to c ints, floats and doubles
-***/
-
-// memory barrier macro. to ensure that reads/stores to one half of the FPU reg struct
-// do not overlap with reads/stores from the other half. things can go wrong if the
-// compiler writes code to write the mantissa, then load the overall as float, then store
-// the exponent. note this is not a hardware level memory barrier, this is a compiler
-// level memory barrier against the optimization engine.
-#if defined(__GCC__)
-# define float_t_mem_barrier()  __asm__ __volatile__ ("":::"memory")
-#else
-# define float_t_mem_barrier()
-#endif
-
-#pragma pack(push,1)
-
-/*
-* Union between raw int and flow
-*
-* This allows floats to be loaded as integers which some file formats need
-**/
-typedef union {
-    /** Float value */
-    float           v;
-    /** Integer value */
-    uint32_t        raw;
-} float32_t;
-#pragma pack(pop)
-
-#pragma pack(push,1)
-
-/**
-* 32 bit float type so that each part can be accessed
-*
-*  \warning This is machine (architecture) dependant
-**/
-typedef union {
-    /**
-    * The float representation
-    **/
-    double          v;
-    /**
-    * The byte wise representation as an unsigned int.  Used when reading from a file.
-    **/
-    uint64_t        raw;
-} float64_t;
-#pragma pack(pop)
-
-/**
 * Reads  a little endian 8 bit value in the buffer, to an unsigned 8 bit int
 *
 * @param p the buffer
@@ -101,34 +51,6 @@ static inline int16_t __le_s16(const void *p) {
 }
 
 /**
-* Write a little endian 24 bit unsigned int into the buffer
-*
-* @param p the buffer
-* @data 24 bit data to write
-**/
-static inline void __w_le_u24(void *_d,uint32_t data) {
-    unsigned char *d = (unsigned char*)(_d);
-
-    *d++ = data;
-    *d++ = data >> 8;
-    *d++ = data >> 16;
-}
-
-/**
-* Write a big endian 24 bit unsigned int into the buffer
-*
-* @param p the buffer
-* @data 24 bit data to write
-**/
-static inline void __w_be_u24(void *_d,uint32_t data) {
-    unsigned char *d = (unsigned char*)(_d);
-
-    *d++ = data >> 16;
-    *d++ = data >> 8;
-    *d++ = data;
-}
-
-/**
 * Write a little endian 16 bit unsigned int into the buffer
 *
 * @param p the buffer
@@ -147,26 +69,6 @@ static inline void __w_le_u16(void *p,const uint16_t val) {
 static inline void __w_be_u16(void *p,const uint16_t val) {
     ((uint8_t*)(p))[0] = val >> 8UL;
     ((uint8_t*)(p))[1] = val;
-}
-
-/**
-* Reads  a little endian 24 bit value in the buffer, to a unsigned 32 bit int
-*
-* @param p the buffer
-* @return the  int
-**/
-static inline uint32_t __le_u24(const void *p) {
-    return *((uint32_t*)(p)) & 0xFFFFFF;
-}
-
-/**
-* Reads  a little endian 32 bit value in the buffer to a unsigned 24 bit int
-*
-* @param p the buffer
-* @return the unsigned int
-**/ 
-static inline int32_t __le_s24(const void *p) {
-    return ((int32_t)(*((uint32_t*)(p)) << 8)) >> 8; /* NTS: unsigned shift to move low 24 bits over, then signed shift to stretch it down */
 }
 
 /**
@@ -267,32 +169,6 @@ static inline int16_t __be_s16(const void *p) {
 }
 
 /**
-* Reads  a big endian 24 bit value in the buffer to a unsigned 32 bit int
-*
-* @param p the buffer
-* @return the unsigned int
-**/ 
-static inline uint32_t __be_u24(const void *p) {
-    const unsigned char *c = (const unsigned char *)p;
-
-    return
-        (((uint32_t)c[0]) << 16U) |
-        (((uint32_t)c[1]) <<  8U) |
-        (((uint32_t)c[2]) <<  0U);
-}
-
-/**
-* Reads  a big endian 24 bit value in the buffer to a signed 32 bit int
-*
-* @param p the buffer
-* @return the unsigned int
-**/ 
-
-static inline int32_t __be_s24(const void *p) {
-    return ((int32_t)(__be_u24(p) << 8)) >> 8; /* NTS: unsigned shift to move low 24 bits over, then signed shift to stretch it down */
-}
-
-/**
 * Reads  a big endian 32 bit value in the buffer to a unsigned 32 bit int
 *
 * @param p the buffer
@@ -364,61 +240,6 @@ static inline void __w_be_u64(void *p,const uint64_t val) {
     ((uint8_t*)(p))[6] = val >> 8UL;
     ((uint8_t*)(p))[7] = val;
 }
-
-/**
-* Reads  a little endian value in the buffer to a signed 32 bit int
-*
-* @param p the buffer
-* @return the unsigned int
-**/
-static inline float __le_float32(const void *p) {
-    return *((const float*)(p));
-}
-
-/**
-* Reads  a little endian value in the buffer to a signed 64 bit int
-*
-* @param p the buffer
-* @return the unsigned int
-**/
-static inline double __le_float64(const void *p) {
-    return *((const double*)(p));
-}
-
-/**
-* Reads  a big endian value in the buffer to a signed 32 bit int
-*
-* @param p the buffer
-* @return the unsigned int
-**/
-static inline float __be_float32(const void *p) {
-    float32_t tmp;
-    tmp.raw = __be_u32(p);
-    float_t_mem_barrier();
-    return tmp.v;
-}
-
-/**
-* Reads  a big endian value in the buffer to a signed 64 bit int
-*
-* @param p the buffer
-* @return the unsigned int
-**/
-static inline double __be_float64(const void *p) {
-    float64_t tmp;
-    tmp.raw = __be_u64(p);
-    float_t_mem_barrier();
-    return tmp.v;
-}
-
-/* __he... = Host Endian */
-#if BYTE_ORDER == LITTLE_ENDIAN
-# define __he_float32   __le_float32
-# define __he_float64   __le_float64
-#elif BYTE_ORDER == BIG_ENDIAN
-# define __he_float32   __be_float32
-# define __he_float64   __be_float64
-#endif
 
 /**
 * Reads  a little endian value in the buffer to a signed 32 bit int
