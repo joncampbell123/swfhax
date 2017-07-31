@@ -22,17 +22,6 @@ enum {
 	SLIDING_WINDOW_V4_TYPE_BUFFER
 };
 
-/* NTS: This is the new improved sliding window implementation.
- *      It works exactly like the isp-utils sliding_window, but also
- *      permits the sliding window to represent a memory-mapped file
- *      source, or a user-controlled buffer. The first 4 fields
- *      line up EXACTLY with the isp-utils version.
- *
- *      When isp-utils is deprecated, I will add a #define here to
- *      map sliding_window -> sliding_window_v4
- *
- *      Hopefully this can take the place of that horrible "mmapfile"
- *      C++ mess I made in isp-utils. */
 typedef struct sliding_window_v4 {
 	unsigned char		*buffer;
 	unsigned char		*fence;
@@ -101,37 +90,8 @@ typedef struct sliding_window_v4 {
  *
  *  NEW: the sliding window can also be NULL, But then, the window must be
  *       buffer == data == end == NULL 
- *
- *  NEW: the sliding window can also represent a memory-mapped view of a file (if supported
- *       by the host OS). Note that when first created, buffer == data == end == NULL, the
- *       code will not mmap until you ask it to. Also note that when calling mmap functions
- *       buffer is either non-NULL and pointing directly to the mmap()'d region, or NULL.
- *       Unlike traditional windows, you must not assume that buffer != NULL. But you may
- *       assume that if buffer != NULL the other pointers are non-NULL. The "is_sane"
- *       function will flag any mmap window that does not fit those constraints.
- *
- *       In this mode, whether you intend to read or write with the window
- *       is important:
- *
- *       - in read mode, you are expected to read from the window using the
- *       data pointer (up to "end"). On "flush" the data pointer is moved back towards buffer
- *       by re-mapping the memory-map window. In almost all circumstances, end == fence
- *       (but don't assume that!).
- *
- *       - in write mode, you are expected to write data to the end pointer (just as you
- *         would a normal window). the flush functions however still go by the "data" pointer,
- *         so as you write you must make sure "data" follows the "end" pointer. In most
- *         circumstances, implementations will simply write to ->end, advance ->end, and
- *         then set data == end
- *
- *       - the "lazy mmap" function is written to remap if and only if your offset is not
- *         yet visible in the mapping, or if remapping would be required to ensure that
- *         the specified number of bytes are visible. The function is written to ensure
- *         that many bytes are available EXCEPT in cases where the range passes the end of
- *         the file. If the offset itself is past the EOF, the function will return failure
- *         and buffer == NULL */
+ */
 
-/* TODO: Which of these functions should NOT be publicly visible? */
 sliding_window_v4*	sliding_window_v4_create_null();
 sliding_window_v4*	sliding_window_v4_create_buffer(size_t size);
 sliding_window_v4*	sliding_window_v4_destroy(sliding_window_v4 *sw);
@@ -144,18 +104,6 @@ sliding_window_v4*	sliding_window_v4_alloc_buffer(sliding_window_v4 *sw,size_t s
 sliding_window_v4*	sliding_window_v4_set_custom_buffer(sliding_window_v4 *sw,size_t size,const unsigned char *data);
 int			sliding_window_v4_is_sane(sliding_window_v4 *sw);
 void			sliding_window_v4_free(sliding_window_v4 *sw);
-uint64_t		sliding_window_v4_ptr_to_mmap_offset(sliding_window_v4 *sw,unsigned char *ptr);
-int			sliding_window_v4_mmap_lseek(sliding_window_v4 *sw,uint64_t offset);
-sliding_window_v4*	sliding_window_v4_alloc_mmap(sliding_window_v4 *sw,size_t max_size);
-void			sliding_window_v4_do_munmap(sliding_window_v4 *sw);
-int			sliding_window_v4_mmap_set_fd(sliding_window_v4 *sw,int fd,int lib_ownership/*whether the caller gives the lib ownership of the fd*/);
-unsigned char*		sliding_window_v4_mmap_offset_to_ptr(sliding_window_v4 *sw,uint64_t ofs);
-int			sliding_window_v4_mmap_lazy_lseek(sliding_window_v4 *sw,uint64_t ofs,size_t len);
-void			sliding_window_v4_do_mmap_sync(sliding_window_v4 *sw);
-int			sliding_window_v4_do_mmap(sliding_window_v4 *sw);
-sliding_window_v4*	sliding_window_v4_create_mmap(size_t limit,int fd);
-int			sliding_window_v4_mmap_data_advance(sliding_window_v4 *sw,unsigned char *to);
-int			sliding_window_v4_do_mmap_autoextend(sliding_window_v4 *sw,uint64_t ofs,size_t len);
 
 static inline int sliding_window_v4_set_custom_buffer_free_cb(sliding_window_v4 *sw,void (*cb)(void *)) {
 	if (sw->type == SLIDING_WINDOW_V4_TYPE_BUFFER && !sw->u.buffer.lib_owner) {
@@ -173,9 +121,6 @@ static inline unsigned char sliding_window_v4_is_readable(sliding_window_v4 *sw)
 	return (sw->buffer != NULL)?1:0;
 }
 
-/* since mmap() windows are permitted to be read-only the calling program might want to
- * ask at any time if the window is writeable. programs that don't will segfault the
- * minute they try to write read-only mappings, and it serves them right! */
 static inline unsigned char sliding_window_v4_is_writeable(sliding_window_v4 *sw) {
 	if (sw == NULL) return 0;
 
