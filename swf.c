@@ -464,30 +464,6 @@ int swf_reader_get_file_header(swf_reader *swf) {
 		return -1;
 	}
 
-#if ENABLE_debug
-	/* test code by re-reading header through decompressor.
-	 * the decompressor is supposed to pass through the first 8 bytes unmodified */
-	if (swf_reader_seek(swf,0)) {
-		fprintf(stderr,"Failed to seek to 0\n");
-		return -1;
-	}
-	if ((size_t)swf_reader_read(swf,tmp,sizeof(tmp)) != sizeof(tmp)) {
-		fprintf(stderr,"Failed to re-read header\n");
-		return -1;
-	}
-	if (swf_reader_seek(swf,8)) {
-		fprintf(stderr,"Failed to seek to 8\n");
-		return -1;
-	}
-
-	/* NTS: The ZLIB reader changes the "CWS" signature to "FWS" on read */
-	if (memcmp(swf->header.Signature+1,tmp+1,2) != 0 || swf->header.Version != tmp[3] ||
-		swf->header.FileLength != __le_u32(tmp+4)) {
-		fprintf(stderr,"Re-read doesn't match\n");
-		return -1;
-	}
-#endif
-
 	swf_reader_read_RECT(swf,&swf->header.FrameSize);
 	swf->header.FrameRate = (swf_UFIXED8)swf_reader_read_UI16(swf);
 	swf->header.FrameCount = swf_reader_read_UI16(swf);

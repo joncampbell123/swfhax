@@ -183,7 +183,7 @@ static void do_dump_shape_outline_only(swf_reader *swf,swf_DefineShape *nfo,unsi
 	fprintf(fp,"  <style type=\"text/css\"><![CDATA[\n");
 	fprintf(fp,"   .blackpen { fill:none; stroke:black; stroke-width:20 }\n");
 	fprintf(fp,"  ]]></style>\n");
-#if ENABLE_debug
+#if 0
 	if (!outline_colormap) {
 		fprintf(fp,"  <rect x=\"%u\" y=\"%u\" width=\"%u\" height=\"%u\" fill=\"none\" stroke=\"blue\" stroke-width=\"20\" /><!-- DEBUG BORDERLINE -->\n",
 			padx,pady,
@@ -250,7 +250,7 @@ static void do_dump_shape_outline_only(swf_reader *swf,swf_DefineShape *nfo,unsi
 			}
 			else if (r.ShapeRecord_type == swf_shrec_StyleChangeRecord) {
 				if (r.shrec.style.StyleChangeRecord.StateNewStyles) {
-#if ENABLE_debug_cc
+#if 0
 					fprintf(stderr,"NewStyles in ShapeID %u\n",nfo->ShapeId);
 #endif
 					if (swf_reader_read_FILLSTYLEARRAY_header(swf,&fsnfo,tag_code)) return;
@@ -410,7 +410,7 @@ static void do_dump_shape(swf_reader *swf,swf_DefineShape *nfo,unsigned int tag_
 		(nfo->ShapeBounds.Ymax - nfo->ShapeBounds.Ymin) / SWF_TWIPS_PER_PIXEL,
 		nfo->ShapeBounds.Xmax - nfo->ShapeBounds.Xmin,
 		nfo->ShapeBounds.Ymax - nfo->ShapeBounds.Ymin);
-#if ENABLE_debug
+#if 0
 	fprintf(fp,"  <rect x=\"0\" y=\"0\" width=\"%u\" height=\"%u\" fill=\"none\" stroke=\"blue\" stroke-width=\"20\" /><!-- DEBUG BORDERLINE -->\n",
 		nfo->ShapeBounds.Xmax - nfo->ShapeBounds.Xmin,
 		nfo->ShapeBounds.Ymax - nfo->ShapeBounds.Ymin);
@@ -478,7 +478,7 @@ static void do_dump_shape(swf_reader *swf,swf_DefineShape *nfo,unsigned int tag_
 				if (r.shrec.style.StyleChangeRecord.StateNewStyles) {
 					void *np;
 
-#if ENABLE_debug_cc
+#if 0
 					fprintf(stderr,"NewStyles in ShapeID %u\n",nfo->ShapeId);
 #endif
 
@@ -767,7 +767,7 @@ void do_dump_font_to_svg(swf_reader *swf,FILE *fp) {
 		fprintf(fp,"   .blackpen { fill:black; stroke:none; }\n");
 
 	fprintf(fp,"  ]]></style>\n");
-#if ENABLE_debug
+#if 0
 	fprintf(fp,"  <rect x=\"0\" y=\"0\" width=\"%u\" height=\"%u\" fill=\"none\" stroke=\"blue\" stroke-width=\"20\" /><!-- DEBUG BORDERLINE -->\n",
 		Xmax - Xmin,
 		Ymax - Ymin);
@@ -799,7 +799,7 @@ void do_dump_font_to_svg(swf_reader *swf,FILE *fp) {
 			}
 			else if (r.ShapeRecord_type == swf_shrec_StyleChangeRecord) {
 				if (r.shrec.style.StyleChangeRecord.StateNewStyles) {
-#if ENABLE_debug_cc
+#if 0
 					fprintf(stderr,"NewStyles in Font??\n");
 #endif
 					break;
