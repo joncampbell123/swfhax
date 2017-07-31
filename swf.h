@@ -1,6 +1,6 @@
 
-#ifndef __ISP_UTILS_V4_SWF_FLASH_SWF_H
-#define __ISP_UTILS_V4_SWF_FLASH_SWF_H
+#ifndef __SWFHAX_FLASH_SWF_H
+#define __SWFHAX_FLASH_SWF_H
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -522,5 +522,5 @@ int swf_reader_read_PlaceObject(swf_reader *swf,swf_PlaceObject *r);
 extern const uint16_t swf_SoundRatesUB2[4];
 extern const char *swf_SoundCompressionUB4[16];
 
-#endif /* __ISP_UTILS_V4_SWF_FLASH_SWF_H */
+#endif /* __SWFHAX_FLASH_SWF_H */
 

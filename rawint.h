@@ -1,6 +1,6 @@
 
-#ifndef __ISP_UTILS_MISC_RAWINT_H
-#define __ISP_UTILS_MISC_RAWINT_H
+#ifndef __SWFHAX_RAWINT_H
+#define __SWFHAX_RAWINT_H
 
 #ifndef _BSD_SOURCE
 #pragma warning You need to define _BSD_SOURCE
@@ -460,7 +460,7 @@ static inline uint32_t __he_to_be_32(uint32_t val) {
     return htobe32(val);
 }
 
-#endif /* __ISP_UTILS_MISC_RAWINT_H */
+#endif /* __SWFHAX_RAWINT_H */
 /* vim: set tabstop=4 */
 /* vim: set softtabstop=4 */
 /* vim: set shiftwidth=4 */

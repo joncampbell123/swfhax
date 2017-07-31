@@ -1,6 +1,6 @@
 
-#ifndef __ISP_UTILS_V4_SWF_FLASH_SWF_ZLIB_READER_H
-#define __ISP_UTILS_V4_SWF_FLASH_SWF_ZLIB_READER_H
+#ifndef __SWFHAX_FLASH_SWF_ZLIB_READER_H
+#define __SWFHAX_FLASH_SWF_ZLIB_READER_H
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -19,5 +19,5 @@ int swf_reader_zlib_read(void *io,void *buf,int len);
 int swf_reader_zlib_seek(void *io,uint64_t pos);
 int swf_reader_init_zlib(swf_reader *swf);
 
-#endif /* __ISP_UTILS_V4_SWF_FLASH_SWF_ZLIB_READER_H */
+#endif /* __SWFHAX_FLASH_SWF_ZLIB_READER_H */
 
